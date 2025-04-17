@@ -17,8 +17,8 @@ class _MemoryManagementPageState extends State<MemoryManagementPage> {
   @override
   void initState() {
     super.initState();
-    // Every 2 seconds, increment the generation and call setState to re-instanciate the select notifier.
-    timer = Timer.periodic(const Duration(seconds: 2), (final timer) {
+    // Every second, increment the generation and call setState to re-instanciate the select notifier.
+    timer = Timer.periodic(const Duration(seconds: 1), (final timer) {
       memoryManagementManager.notifier.nextGeneration();
       if (mounted) {
         setState(() {});
