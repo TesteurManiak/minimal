@@ -1,0 +1,14 @@
+{
+    "Generate part directive": {
+        "prefix": "part",
+        "body": [
+            "part '${TM_FILENAME_BASE}.g.dart';",
+        ]
+    },
+    "Generate mappable part directive": {
+        "prefix": "mpart",
+        "body": [
+            "part '${TM_FILENAME_BASE}.mapper.dart';",
+        ]
+    }
+}
