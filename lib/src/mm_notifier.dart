@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart';
 /// Callback invoked when a notifier has no more subscribers
 typedef OnUnsubscribedCallback = void Function();
 
+/// Selector function to select part of the state
+typedef Selector<T, S> = S Function(T state);
+
 /// Minimal notifier for the MVN (Model-View-Notifier) pattern
 ///
 /// A minimal notifier manages state and business logic. It extends
@@ -16,14 +19,28 @@ typedef OnUnsubscribedCallback = void Function();
 ///   void increment() => notify(state.copyWith(count: state.count + 1));
 /// }
 /// ```
-abstract class MMNotifier<T> extends ChangeNotifier with _DisposableMixin {
+abstract class MMNotifier<T> extends ChangeNotifier {
   /// Creates a minimal notifier with the given initial state
   MMNotifier(this._state);
 
-  final _childNotifiers = <_MMSelector<dynamic>>[];
+  final _selectorNotifiers = <Selector<T, dynamic>, _MMSelector<dynamic>>{};
 
   var _listenersCount = 0;
+  var _disposed = false;
   T _state;
+
+  /// Whether this notifier has been disposed. Subclasses can check this before
+  /// performing asynchronous operations that might occur after disposal
+  ///
+  /// Example:
+  /// ```dart
+  /// void increment() {
+  ///   if (disposed) return;
+  ///   notify(state.copyWith(value: state.value + 1));
+  /// }
+  /// ```
+  @protected
+  bool get disposed => _disposed;
 
   /// The current state managed by this notifier
   ///
@@ -56,7 +73,11 @@ abstract class MMNotifier<T> extends ChangeNotifier with _DisposableMixin {
   ///   ),
   /// );
   /// ```
-  ValueListenable<S> select<S>(final S Function(T state) selector) {
+  ValueListenable<S> select<S>(final Selector<T, S> selector) {
+    if (_selectorNotifiers[selector] case final _MMSelector<S> existing) {
+      return existing;
+    }
+
     final notifier = _MMSelector(() => selector(_state));
     // the moment selector is subscribed, start listening to the notifier
     // for its changes
@@ -66,8 +87,7 @@ abstract class MMNotifier<T> extends ChangeNotifier with _DisposableMixin {
     // ignore: cascade_invocations
     notifier.onRemoveListener = () => removeListener(notifier.notify);
 
-    _childNotifiers.add(notifier);
-    return notifier;
+    return _selectorNotifiers[selector] = notifier;
   }
 
   /// Mutates the notifier's state and notifies its listeners
@@ -111,16 +131,15 @@ abstract class MMNotifier<T> extends ChangeNotifier with _DisposableMixin {
   @override
   @mustCallSuper
   void dispose() {
-    for (final notifier in _childNotifiers) {
-      if (!notifier.disposed) {
-        notifier.dispose();
-      }
+    _disposed = true;
+    for (final notifier in _selectorNotifiers.values) {
+      notifier.dispose();
     }
     super.dispose();
   }
 }
 
-class _MMSelector<T> extends ValueNotifier<T> with _DisposableMixin {
+class _MMSelector<T> extends ValueNotifier<T> {
   _MMSelector(this._getValue) : super(_getValue());
 
   final T Function() _getValue;
@@ -141,29 +160,5 @@ class _MMSelector<T> extends ValueNotifier<T> with _DisposableMixin {
   void removeListener(final VoidCallback listener) {
     onRemoveListener?.call();
     super.removeListener(listener);
-  }
-}
-
-mixin _DisposableMixin on ChangeNotifier {
-  var _disposed = false;
-
-  /// Whether this notifier has been disposed. Subclasses can check this before
-  /// performing asynchronous operations that might occur after disposal
-  ///
-  /// Example:
-  /// ```dart
-  /// void increment() {
-  ///   if (disposed) return;
-  ///   notify(state.copyWith(value: state.value + 1));
-  /// }
-  /// ```
-  @protected
-  bool get disposed => _disposed;
-
-  @override
-  @mustCallSuper
-  void dispose() {
-    _disposed = true;
-    super.dispose();
   }
 }
