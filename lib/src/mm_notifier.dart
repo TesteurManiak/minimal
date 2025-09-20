@@ -16,26 +16,14 @@ typedef OnUnsubscribedCallback = void Function();
 ///   void increment() => notify(state.copyWith(count: state.count + 1));
 /// }
 /// ```
-abstract class MMNotifier<T> extends ChangeNotifier {
+abstract class MMNotifier<T> extends ChangeNotifier with _DisposableMixin {
   /// Creates a minimal notifier with the given initial state
   MMNotifier(this._state);
 
-  var _listenersCount = 0;
-  var _disposed = false;
-  T _state;
+  final _childNotifiers = <_MMSelector<dynamic>>[];
 
-  /// Whether this notifier has been disposed. Subclasses can check this before
-  /// performing asynchronous operations that might occur after disposal
-  ///
-  /// Example:
-  /// ```dart
-  /// void increment() {
-  ///   if (disposed) return;
-  ///   notify(state.copyWith(value: state.value + 1));
-  /// }
-  /// ```
-  @protected
-  bool get disposed => _disposed;
+  var _listenersCount = 0;
+  T _state;
 
   /// The current state managed by this notifier
   ///
@@ -77,6 +65,8 @@ abstract class MMNotifier<T> extends ChangeNotifier {
     // for its changes
     // ignore: cascade_invocations
     notifier.onRemoveListener = () => removeListener(notifier.notify);
+
+    _childNotifiers.add(notifier);
     return notifier;
   }
 
@@ -121,12 +111,16 @@ abstract class MMNotifier<T> extends ChangeNotifier {
   @override
   @mustCallSuper
   void dispose() {
-    _disposed = true;
+    for (final notifier in _childNotifiers) {
+      if (!notifier.disposed) {
+        notifier.dispose();
+      }
+    }
     super.dispose();
   }
 }
 
-class _MMSelector<T> extends ValueNotifier<T> {
+class _MMSelector<T> extends ValueNotifier<T> with _DisposableMixin {
   _MMSelector(this._getValue) : super(_getValue());
 
   final T Function() _getValue;
@@ -147,5 +141,29 @@ class _MMSelector<T> extends ValueNotifier<T> {
   void removeListener(final VoidCallback listener) {
     onRemoveListener?.call();
     super.removeListener(listener);
+  }
+}
+
+mixin _DisposableMixin on ChangeNotifier {
+  var _disposed = false;
+
+  /// Whether this notifier has been disposed. Subclasses can check this before
+  /// performing asynchronous operations that might occur after disposal
+  ///
+  /// Example:
+  /// ```dart
+  /// void increment() {
+  ///   if (disposed) return;
+  ///   notify(state.copyWith(value: state.value + 1));
+  /// }
+  /// ```
+  @protected
+  bool get disposed => _disposed;
+
+  @override
+  @mustCallSuper
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }
