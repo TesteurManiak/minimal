@@ -135,6 +135,7 @@ abstract class MMNotifier<T> extends ChangeNotifier {
     for (final notifier in _selectorNotifiers.values) {
       notifier.dispose();
     }
+    _selectorNotifiers.clear();
     super.dispose();
   }
 }
