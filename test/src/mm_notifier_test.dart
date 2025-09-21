@@ -134,6 +134,33 @@ void main() {
       expect(selectNotified, 2);
       expect(selected.value, 'oneTwo');
     });
+
+    test('reuses the same selector instance when called multiple times with the same selector', () {
+      final notifier = TNotifier();
+
+      // Define the selector function outside to ensure it's the same reference
+      int valueSelector(final TState state) => state.value;
+
+      // Call select multiple times with the same selector function
+      final selected1 = notifier.select(valueSelector);
+      final selected2 = notifier.select(valueSelector);
+      final selected3 = notifier.select(valueSelector);
+
+      // All should return the same instance
+      expect(identical(selected1, selected2), true);
+      expect(identical(selected2, selected3), true);
+      expect(identical(selected1, selected3), true);
+    });
+
+    test('creates different selector instances for different selectors', () {
+      final notifier = TNotifier();
+
+      final selectorA = notifier.select((final state) => state.value);
+      final selectorB = notifier.select((final state) => state.value);
+
+      // Should be different instances since selectors are different
+      expect(identical(selectorA, selectorB), false);
+    });
   });
 
   group('MMNotifier dispose', () {
